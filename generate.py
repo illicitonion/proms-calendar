@@ -1,3 +1,5 @@
+import pytz
+
 from datetime import datetime, timedelta
 
 from icalendar import Calendar, Event
@@ -28,19 +30,22 @@ def parse_page(url):
     start_time_and_date_str = " ".join(parts[0:5])
     location_str = " ".join(parts[5:])
 
-    date_and_time = datetime.strptime(start_time_and_date_str, "%H:%M %a %d %b %Y")
+    local_date_and_time = pytz.timezone("Europe/London").localize(datetime.strptime(start_time_and_date_str, "%H:%M %a %d %b %Y"))
+    utc_date_and_time = local_date_and_time.astimezone(pytz.utc)
 
     piece_elements = driver.find_elements(By.CSS_SELECTOR, ".ev-act-schedule__performance-composer-segments-list > li")
 
     details = "\n".join([url] + [p.text for p in piece_elements])
 
-    return Concert(title, date_and_time, location_str, details)
+    return Concert(title, utc_date_and_time, location_str, details)
 
 cal = Calendar()
 
-for url in urls:
+for index, url in enumerate(urls):
     try:
         concert = parse_page(url)
+        if index == 0:
+            cal.add("NAME", f"Proms {concert.when.year}")
         event = Event()
         event.add("DTSTART", concert.when)
         event.add("DTEND", concert.when + timedelta(hours=2))
